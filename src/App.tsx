@@ -33,11 +33,11 @@ const App: React.FC = () => {
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
       } else {
-        setError('Payment verification failed');
+        setError('Verifica del pagamento fallita');
         setAppStatus('ERROR');
       }
     } catch (err) {
-      setError('Error verifying payment');
+      setError('Errore nella verifica del pagamento');
       setAppStatus('ERROR');
     }
   };
@@ -82,7 +82,7 @@ const App: React.FC = () => {
         window.location.href = url;
       }
     } catch (err: any) {
-      setError(err.message || 'Failed to create payment session');
+      setError(err.message || 'Impossibile creare la sessione di pagamento');
       setAppStatus('ERROR');
     }
   }, []);
