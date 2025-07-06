@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: `AI Generated Book: "${book_config.title}"`,
-              description: `${chapters} chapters, ~${pages} pages - ${book_config.genre}`,
+              name: `Libro AI: "${book_config.title}"`,
+              description: `${chapters} capitoli, ~${pages} pagine - ${book_config.genre}`,
               metadata: {
                 chapters: chapters.toString(),
                 pages: pages.toString(),

@@ -89,7 +89,7 @@ const App: React.FC = () => {
 
   const generateBook = useCallback(async (config: BookConfig) => {
     setAppStatus('GENERATING');
-    setLoadingMessage('Crafting your book outline...');
+    setLoadingMessage('Creazione della struttura del libro...');
     setError(null);
     setBook(null);
 
@@ -102,7 +102,7 @@ const App: React.FC = () => {
     try {
       const outline = await generateBookOutline(title, genre, chapterCount, artStyle, language);
       if (!outline || outline.length !== chapterCount) {
-        throw new Error("Failed to generate a valid book outline. Please try adjusting your prompt.");
+        throw new Error("Impossibile generare la struttura del libro. Prova a modificare i parametri.");
       }
 
       const initialChapters: Chapter[] = outline.map(o => ({
@@ -131,7 +131,7 @@ const App: React.FC = () => {
         updateChapterStatus(i, GenerationStatus.Complete, { imageUrl: imageUrl || '' });
       }
     } catch (err: any) {
-      setError(err.message || "An unknown error occurred during book generation.");
+      setError(err.message || "Si è verificato un errore durante la generazione del libro.");
       setAppStatus('ERROR');
     }
   }, []);
@@ -161,7 +161,7 @@ const App: React.FC = () => {
               </svg>
             </div>
             <h1 className="text-2xl font-bold text-white mb-4">Pagamento Completato!</h1>
-            <p className="text-slate-400 mb-6">Il tuo pagamento è stato elaborato con successo. Ora puoi generare il tuo libro.</p>
+            <p className="text-slate-400 mb-6">Il tuo pagamento è stato elaborato con successo. Ora puoi generare il tuo libro personalizzato.</p>
             <button
               onClick={handleStartGeneration}
               className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-500 transition duration-300"

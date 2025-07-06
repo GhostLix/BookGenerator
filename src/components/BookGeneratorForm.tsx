@@ -30,7 +30,7 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
   const [chapterCount, setChapterCount] = useState(5);
   const [totalPages, setTotalPages] = useState(25);
   const [artStyle, setArtStyle] = useState<ArtStyle>(ArtStyle.Fantasy);
-  const [language, setLanguage] = useState<string>('English');
+  const [language, setLanguage] = useState<string>('Italiano');
 
   const currentConfig: BookConfig = {
     title,
