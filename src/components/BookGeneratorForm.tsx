@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { ArtStyle } from '../types';
 import { ART_STYLES, MIN_CHAPTERS, LANGUAGES } from '../constants';
-import { BookOpenIcon } from './icons';
+import { BookOpenIcon, SpinnerIcon } from './icons';
 
 export interface BookConfig {
   title: string;
@@ -45,7 +45,7 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (title && genre && language) {
+    if (title && genre && language && !isLoading) {
       onGenerate(currentConfig);
     }
   };
@@ -88,7 +88,8 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="es. L'Ultima Luce Stellare"
               required
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
+              disabled={isLoading}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -101,7 +102,8 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
               onChange={(e) => setGenre(e.target.value)}
               placeholder="es. Un'avventura fantascientifica su una nave spaziale perduta"
               required
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
+              disabled={isLoading}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           
@@ -114,7 +116,8 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
                 min={MIN_CHAPTERS}
                 value={chapterCount}
                 onChange={handleChapterCountChange}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
+                disabled={isLoading}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
              <div>
@@ -125,7 +128,8 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
                 min={chapterCount}
                 value={totalPages}
                 onChange={handleTotalPagesChange}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
+                disabled={isLoading}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -140,7 +144,8 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
               onChange={(e) => setLanguage(e.target.value)}
               placeholder="es. Italiano o scrivi la tua lingua"
               required
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200"
+              disabled={isLoading}
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <datalist id="languages-datalist">
               {LANGUAGES.map(lang => (
@@ -157,7 +162,8 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
                   key={style}
                   type="button"
                   onClick={() => setArtStyle(style)}
-                  className={`px-4 py-3 rounded-lg text-sm text-center transition duration-200 ${
+                  disabled={isLoading}
+                  className={`px-4 py-3 rounded-lg text-sm text-center transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                     artStyle === style
                       ? 'bg-indigo-600 text-white font-semibold ring-2 ring-offset-2 ring-offset-slate-800 ring-indigo-500'
                       : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
@@ -176,7 +182,7 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
               <span className="text-2xl font-bold text-indigo-400">€{price.toFixed(2)}</span>
             </div>
             <p className="text-sm text-slate-500">{breakdown}</p>
-            <p className="text-xs text-slate-600 mt-1">1 capitolo = €0.10 • 100 pagine = €0.10</p>
+            <p className="text-xs text-slate-600 mt-1">1 capitolo = €0.10 • 100 pagine = €0.10 • Prezzo minimo €0.50</p>
           </div>
           
           <button
@@ -184,9 +190,22 @@ const BookGeneratorForm: React.FC<BookGeneratorFormProps> = ({
             disabled={isLoading || !title || !genre || !language}
             className="w-full bg-indigo-600 text-white font-bold py-4 rounded-lg hover:bg-indigo-500 disabled:bg-slate-600 disabled:cursor-not-allowed disabled:text-slate-400 transition duration-300 flex items-center justify-center text-lg"
           >
-            {isLoading ? 'Generazione in corso...' : `Paga €${price.toFixed(2)} e Genera Libro`}
+            {isLoading ? (
+              <>
+                <SpinnerIcon className="w-5 h-5 animate-spin mr-2" />
+                {loadingMessage || 'Caricamento...'}
+              </>
+            ) : (
+              `Paga €${price.toFixed(2)} e Genera Libro`
+            )}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-xs text-slate-500">
+            Sarai reindirizzato a Stripe per completare il pagamento in modo sicuro
+          </p>
+        </div>
       </div>
     </div>
   );

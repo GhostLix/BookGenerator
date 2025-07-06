@@ -30,6 +30,14 @@ const App: React.FC = () => {
       if (isValid) {
         setPaymentVerified(true);
         setAppStatus('PAYMENT_SUCCESS');
+        
+        // Get book config from localStorage if available
+        const storedConfig = localStorage.getItem('pendingBookConfig');
+        if (storedConfig) {
+          setPendingBookConfig(JSON.parse(storedConfig));
+          localStorage.removeItem('pendingBookConfig');
+        }
+        
         // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
       } else {
@@ -63,8 +71,13 @@ const App: React.FC = () => {
 
   const handlePayment = useCallback(async (config: BookConfig) => {
     try {
+      setLoadingMessage('Reindirizzamento al pagamento...');
+      
       const successUrl = `${window.location.origin}${window.location.pathname}`;
       const cancelUrl = window.location.href;
+
+      // Store config in localStorage for after payment
+      localStorage.setItem('pendingBookConfig', JSON.stringify(config));
 
       const { url } = await createGuestCheckoutSession({
         chapters: config.chapterCount,
@@ -74,16 +87,16 @@ const App: React.FC = () => {
         cancelUrl,
       });
 
-      // Store config for after payment
-      setPendingBookConfig(config);
-      
       // Redirect to Stripe checkout
       if (url) {
         window.location.href = url;
+      } else {
+        throw new Error('URL di pagamento non ricevuto');
       }
     } catch (err: any) {
       setError(err.message || 'Impossibile creare la sessione di pagamento');
       setAppStatus('ERROR');
+      setLoadingMessage('');
     }
   }, []);
 
@@ -142,6 +155,7 @@ const App: React.FC = () => {
     setAppStatus('IDLE');
     setPaymentVerified(false);
     setPendingBookConfig(null);
+    localStorage.removeItem('pendingBookConfig');
   };
 
   const handleStartGeneration = () => {
@@ -162,9 +176,17 @@ const App: React.FC = () => {
             </div>
             <h1 className="text-2xl font-bold text-white mb-4">Pagamento Completato!</h1>
             <p className="text-slate-400 mb-6">Il tuo pagamento è stato elaborato con successo. Ora puoi generare il tuo libro personalizzato.</p>
+            {pendingBookConfig && (
+              <div className="bg-slate-900/50 rounded-lg p-4 mb-6 text-left">
+                <h3 className="text-white font-semibold mb-2">Il tuo libro:</h3>
+                <p className="text-slate-300 text-sm">📖 {pendingBookConfig.title}</p>
+                <p className="text-slate-400 text-xs mt-1">{pendingBookConfig.chapterCount} capitoli • {pendingBookConfig.totalPages} pagine</p>
+              </div>
+            )}
             <button
               onClick={handleStartGeneration}
-              className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-500 transition duration-300"
+              disabled={!pendingBookConfig}
+              className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-500 disabled:bg-slate-600 disabled:cursor-not-allowed transition duration-300"
             >
               Genera il Libro
             </button>
@@ -196,8 +218,8 @@ const App: React.FC = () => {
       <BookGeneratorForm
         onGenerate={handlePayment}
         calculatePrice={calculatePrice}
-        isLoading={appStatus === 'GENERATING'}
-        loadingMessage={appStatus === 'GENERATING' ? loadingMessage : undefined}
+        isLoading={!!loadingMessage}
+        loadingMessage={loadingMessage}
       />
     );
   };
