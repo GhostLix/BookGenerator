@@ -1,55 +1,55 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import BookGeneratorForm, { BookConfig } from './components/BookGeneratorForm';
 import BookDisplay from './components/BookDisplay';
-import AuthForm from './components/AuthForm';
-import PricingPage from './components/PricingPage';
-import SuccessPage from './components/SuccessPage';
 import Loader from './components/Loader';
 import { Book, Chapter, GenerationStatus } from './types';
 import { generateBookOutline, generateChapterText, generateChapterImage } from './services/geminiService';
-import { useAuth } from './hooks/useAuth';
-import { getUserSubscription, getUserOrders } from './services/stripeService';
+import { createGuestCheckoutSession, getSessionFromUrl, verifyPayment } from './services/stripeService';
 
-type AppStatus = 'IDLE' | 'GENERATING' | 'COMPLETE' | 'ERROR' | 'PRICING' | 'SUCCESS';
+type AppStatus = 'IDLE' | 'GENERATING' | 'COMPLETE' | 'ERROR' | 'PAYMENT_SUCCESS';
 
 const App: React.FC = () => {
-  const { user, loading: authLoading, signOut } = useAuth();
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [appStatus, setAppStatus] = useState<AppStatus>('IDLE');
   const [book, setBook] = useState<Book | null>(null);
   const [loadingMessage, setLoadingMessage] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [subscription, setSubscription] = useState<any>(null);
-  const [orders, setOrders] = useState<any[]>([]);
+  const [paymentVerified, setPaymentVerified] = useState(false);
+  const [pendingBookConfig, setPendingBookConfig] = useState<BookConfig | null>(null);
 
-  // Check URL for success page
-  React.useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('success') === 'true') {
-      setAppStatus('SUCCESS');
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
+  // Check for payment success on app load
+  useEffect(() => {
+    const sessionId = getSessionFromUrl();
+    if (sessionId) {
+      handlePaymentReturn(sessionId);
     }
   }, []);
 
-  // Load user subscription and orders when user is authenticated
-  React.useEffect(() => {
-    if (user) {
-      loadUserData();
-    }
-  }, [user]);
-
-  const loadUserData = async () => {
+  const handlePaymentReturn = async (sessionId: string) => {
     try {
-      const [subscriptionData, ordersData] = await Promise.all([
-        getUserSubscription(),
-        getUserOrders()
-      ]);
-      setSubscription(subscriptionData);
-      setOrders(ordersData);
-    } catch (error) {
-      console.error('Error loading user data:', error);
+      const isValid = await verifyPayment(sessionId);
+      if (isValid) {
+        setPaymentVerified(true);
+        setAppStatus('PAYMENT_SUCCESS');
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } else {
+        setError('Payment verification failed');
+        setAppStatus('ERROR');
+      }
+    } catch (err) {
+      setError('Error verifying payment');
+      setAppStatus('ERROR');
     }
+  };
+
+  const calculatePrice = (config: BookConfig): { total: number; breakdown: string } => {
+    const chapterPrice = config.chapterCount * 0.10;
+    const pagePrice = (config.totalPages / 100) * 0.10;
+    const total = chapterPrice + pagePrice;
+    
+    const breakdown = `${config.chapterCount} capitoli (€${chapterPrice.toFixed(2)}) + ${config.totalPages} pagine (€${pagePrice.toFixed(2)})`;
+    
+    return { total: Math.max(0.50, total), breakdown };
   };
 
   const updateChapterStatus = (chapterIndex: number, status: GenerationStatus, data?: Partial<Chapter>) => {
@@ -60,6 +60,32 @@ const App: React.FC = () => {
       return { ...prevBook, chapters: newChapters };
     });
   };
+
+  const handlePayment = useCallback(async (config: BookConfig) => {
+    try {
+      const successUrl = `${window.location.origin}${window.location.pathname}`;
+      const cancelUrl = window.location.href;
+
+      const { url } = await createGuestCheckoutSession({
+        chapters: config.chapterCount,
+        pages: config.totalPages,
+        bookConfig: config,
+        successUrl,
+        cancelUrl,
+      });
+
+      // Store config for after payment
+      setPendingBookConfig(config);
+      
+      // Redirect to Stripe checkout
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to create payment session');
+      setAppStatus('ERROR');
+    }
+  }, []);
 
   const generateBook = useCallback(async (config: BookConfig) => {
     setAppStatus('GENERATING');
@@ -114,50 +140,37 @@ const App: React.FC = () => {
     setBook(null);
     setError(null);
     setAppStatus('IDLE');
+    setPaymentVerified(false);
+    setPendingBookConfig(null);
   };
 
-  const handleShowPricing = () => {
-    setAppStatus('PRICING');
+  const handleStartGeneration = () => {
+    if (pendingBookConfig) {
+      generateBook(pendingBookConfig);
+    }
   };
-
-  const handleBackFromPricing = () => {
-    setAppStatus('IDLE');
-  };
-
-  const handleSuccessContinue = () => {
-    setAppStatus('IDLE');
-    loadUserData(); // Refresh user data after successful payment
-  };
-
-  const handleAuthSuccess = () => {
-    // Auth state will be handled by useAuth hook
-  };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900">
-        <Loader text="Loading..." />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <AuthForm
-        mode={authMode}
-        onToggleMode={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-        onSuccess={handleAuthSuccess}
-      />
-    );
-  }
 
   const renderContent = () => {
-    if (appStatus === 'SUCCESS') {
-      return <SuccessPage onContinue={handleSuccessContinue} />;
-    }
-
-    if (appStatus === 'PRICING') {
-      return <PricingPage onBack={handleBackFromPricing} />;
+    if (appStatus === 'PAYMENT_SUCCESS') {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-900 to-slate-800 text-center">
+          <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl shadow-2xl shadow-green-900/20 p-8 border border-slate-700 max-w-md">
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">Pagamento Completato!</h1>
+            <p className="text-slate-400 mb-6">Il tuo pagamento è stato elaborato con successo. Ora puoi generare il tuo libro.</p>
+            <button
+              onClick={handleStartGeneration}
+              className="w-full bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-500 transition duration-300"
+            >
+              Genera il Libro
+            </button>
+          </div>
+        </div>
+      );
     }
 
     if (appStatus === 'COMPLETE' && book) {
@@ -167,13 +180,13 @@ const App: React.FC = () => {
     if (appStatus === 'ERROR') {
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-slate-900 text-center">
-          <p className="text-2xl font-bold text-red-400 mb-4">An Error Occurred</p>
+          <p className="text-2xl font-bold text-red-400 mb-4">Si è verificato un errore</p>
           <p className="text-slate-400 max-w-md mb-8">{error}</p>
           <button
             onClick={handleRestart}
             className="bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-500 transition duration-300"
           >
-            Start Over
+            Riprova
           </button>
         </div>
       );
@@ -181,14 +194,10 @@ const App: React.FC = () => {
 
     return (
       <BookGeneratorForm
-        onGenerate={generateBook}
-        onShowPricing={handleShowPricing}
-        onSignOut={signOut}
+        onGenerate={handlePayment}
+        calculatePrice={calculatePrice}
         isLoading={appStatus === 'GENERATING'}
         loadingMessage={appStatus === 'GENERATING' ? loadingMessage : undefined}
-        user={user}
-        subscription={subscription}
-        orders={orders}
       />
     );
   };
