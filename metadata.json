@@ -1,0 +1,6 @@
+{
+  "name": "AI Story Weaver",
+  "description": "An application that uses AI to generate complete, illustrated books based on user prompts. Specify a title, genre, number of chapters, and art style, and watch your story come to life with both text and images.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
